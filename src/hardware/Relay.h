@@ -7,14 +7,15 @@
 
 class GPIOPin;
 
-enum RelayTriggerType {
-    LOW_TRIGGER,
-    HIGH_TRIGGER
-};
-
 class Relay {
-    public:        
-        Relay(GPIOPin& gpioInstance, RelayTriggerType trigger = HIGH_TRIGGER);
+    public:
+
+        enum TriggerType {
+            LOW_TRIGGER,
+            HIGH_TRIGGER
+        };
+
+        Relay(GPIOPin& gpioInstance, TriggerType trigger = HIGH_TRIGGER);
 
         void on();
         void off();
@@ -22,5 +23,5 @@ class Relay {
 
     private:
         GPIOPin& gpio;
-        RelayTriggerType relayTrigger;
+        TriggerType relayTrigger;
 };
