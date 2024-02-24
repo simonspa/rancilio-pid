@@ -9,7 +9,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "userConfig.h"
-#include "debugSerial.h"
+#include "Logger.h"
 
 #define ABP2_READ_DELAY_MS (10)
 
@@ -61,7 +61,7 @@ float measurePressure() {
         unsigned long currentMillisPressureDebug = millis();
 
         if (currentMillisPressureDebug - previousMillisPressureDebug >= intervalPressureDebug) {
-            debugPrintf("Counts: %f, Percent: %f, Pressure: %f, Temp: %f\n", ABP2_press_counts, ABP2_percentage, ABP2_pressure, ABP2_temperature);
+            LOG(DEBUG, "Counts: %f, Percent: %f, Pressure: %f, Temp: %f", ABP2_press_counts, ABP2_percentage, ABP2_pressure, ABP2_temperature);
             previousMillisPressureDebug = currentMillisPressureDebug;
         }
     #endif
