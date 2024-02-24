@@ -7,7 +7,7 @@
 #pragma once
 
 #include "TempSensor.h"
-
+#include <DallasTemperature.h>
 
 class TempSensorDallas : public TempSensor {
     public:
@@ -15,5 +15,7 @@ class TempSensorDallas : public TempSensor {
         int getSamplingInterval() const override { return 400; }
         float getTempinCelsius() const override;
     private:
-
+        OneWire* oneWire_;
+        DallasTemperature* dallasSensor_;
+        DeviceAddress sensorDeviceAddress_;
 };
