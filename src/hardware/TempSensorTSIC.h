@@ -7,7 +7,7 @@
 #pragma once
 
 #include "TempSensor.h"
-
+#include <ZACwire.h>
 
 class TempSensorTSIC : public TempSensor {
     public:
@@ -16,5 +16,5 @@ class TempSensorTSIC : public TempSensor {
         float getTempinCelsius() const override;
 
     private:
-
+        ZACwire* tsicSensor_;
 };

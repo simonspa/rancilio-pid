@@ -37,7 +37,7 @@
 #include "hardware/Relay.h"
 #include "hardware/Switch.h"
 #include "hardware/IOSwitch.h"
-#include "hardware/TempSensor.h"
+
 #include "hardware/TempSensorTSIC.h"
 #include "hardware/TempSensorDallas.h"
 
