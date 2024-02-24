@@ -84,7 +84,7 @@ void checkbrewswitch() {
             case 10:
                 if (currBrewSwitchStateMomentary == HIGH && machineState != kWaterEmpty ) {
                     brewSwitchCase = 20;
-                    debugPrintln("brewSwitchCase 10: HIGH");
+                    LOG(DEBUG, "brewSwitchCase 10: HIGH");
                 }
                 break;
 
@@ -94,7 +94,7 @@ void checkbrewswitch() {
                     // Brew trigger
                     currStateBrewSwitch = HIGH;
                     brewSwitchCase = 30;
-                    debugPrintln("brewSwitchCase 20: Brew Trigger HIGH");
+                    LOG(DEBUG, "brewSwitchCase 20: Brew Trigger HIGH");
                 }
 
                 // Button more than brewSwitchMomentaryLongPress pushed
@@ -103,7 +103,7 @@ void checkbrewswitch() {
                     valveRelay.on();
                     pumpRelay.on();
                     startingTime = millis();
-                    debugPrintln("brewSwitchCase 20: Manual Trigger - flushing");
+                    LOG(DEBUG, "brewSwitchCase 20: Manual Trigger - flushing");
                 }
                 break;
 
@@ -112,7 +112,7 @@ void checkbrewswitch() {
                 if ((currBrewSwitchStateMomentary == HIGH && currStateBrewSwitch == HIGH) || (machineState == kShotTimerAfterBrew)) {
                     currStateBrewSwitch = LOW;
                     brewSwitchCase = 40;
-                    debugPrintln("brewSwitchCase 30: Brew Trigger LOW");
+                    LOG(DEBUG, "brewSwitchCase 30: Brew Trigger LOW");
                 }
                 break;
 
@@ -120,7 +120,7 @@ void checkbrewswitch() {
                 // Stop Manual brewing, button goes low:
                 if (currBrewSwitchStateMomentary == LOW && currStateBrewSwitch == LOW) {
                     brewSwitchCase = 40;
-                    debugPrintln("brewswitchTriggerCase 31: Manual Trigger - brewing stop");
+                    LOG(DEBUG, "brewswitchTriggerCase 31: Manual Trigger - brewing stop");
                     valveRelay.off();
                     pumpRelay.off();
                 }
@@ -130,7 +130,7 @@ void checkbrewswitch() {
                 // Once Toggle-Button is released, go back to start and wait for brew button press
                 if (currBrewSwitchStateMomentary == LOW) {
                     brewSwitchCase = 10;
-                    debugPrintln("brewSwitchCase 40: Brew Trigger Next Loop");
+                    LOG(DEBUG, "brewSwitchCase 40: Brew Trigger Next Loop");
                 }
                 break;
 
@@ -176,7 +176,7 @@ void backflush() {
             break;
 
         case kBackflushFillingStart:
-            debugPrintln("Backflush: Portafilter filling...");
+            LOG(INFO, "Backflush: Portafilter filling...");
             valveRelay.on();
             pumpRelay.on();
             backflushState = kBackflushFilling;
@@ -192,7 +192,7 @@ void backflush() {
             break;
 
         case kBackflushFlushingStart:
-            debugPrintln("Backflush: Flushing to drip tray...");
+            LOG(INFO, "Backflush: Flushing to drip tray...");
             valveRelay.off();
             pumpRelay.off();
             flushCycles++;
@@ -213,7 +213,7 @@ void backflush() {
 
         case kBackflushWaitBrewswitchOff:
             if (currStateBrewSwitch == LOW) {
-                debugPrintln("Backflush: Finished!");
+                LOG(INFO, "Backflush: Finished!");
                 valveRelay.off();
                 pumpRelay.off();
                 flushCycles = 0;
@@ -235,7 +235,7 @@ void brew() {
 
         if (currStateBrewSwitch == LOW && currBrewState > kBrewIdle) {
             // abort function for state machine from every state
-            debugPrintln("Brew stopped manually");
+            LOG(INFO, "Brew stopped manually");
             currBrewState = kWaitBrewOff;
         }
 
@@ -273,7 +273,7 @@ void brew() {
                 break;
 
             case kPreinfusion:  // preinfusioon
-                debugPrintln("Preinfusion");
+                LOG(INFO, "Preinfusion");
                 valveRelay.on();
                 pumpRelay.on();
                 currBrewState = kWaitPreinfusion;
@@ -288,7 +288,7 @@ void brew() {
                 break;
 
             case kPreinfusionPause:  // preinfusion pause
-                debugPrintln("Preinfusion pause");
+                LOG(INFO, "Preinfusion pause");
                 valveRelay.on();
                 pumpRelay.off();
                 currBrewState = kWaitPreinfusionPause;
@@ -303,7 +303,7 @@ void brew() {
                 break;
 
             case kBrewRunning:  // brew running
-                debugPrintln("Brew started");
+                LOG(INFO, "Brew started");
                 valveRelay.on();
                 pumpRelay.on();
                 currBrewState = kWaitBrew;
@@ -320,7 +320,7 @@ void brew() {
                 break;
 
             case kBrewFinished:  // brew finished
-                debugPrintln("Brew stopped");
+                LOG(INFO, "Brew stopped");
                 valveRelay.off();
                 pumpRelay.off();
                 currBrewState = kWaitBrewOff;
@@ -393,7 +393,7 @@ void brew() {
                 break;
 
             case 20:  // preinfusioon
-                debugPrintln("Preinfusion");
+                LOG(INFO, "Preinfusion");
                 valveRelay.on();
                 pumpRelay.on();
                 currBrewState = kWaitPreinfusion;
@@ -408,7 +408,7 @@ void brew() {
                 break;
 
             case 30:  // preinfusion pause
-                debugPrintln("preinfusion pause");
+                LOG(INFO, "preinfusion pause");
                 valveRelay.on();
                 pumpRelay.off();
                 currBrewState = kWaitPreinfusionPause;
@@ -423,7 +423,7 @@ void brew() {
                 break;
 
             case 40:  // brew running
-                debugPrintln("Brew started");
+                LOG(INFO, "Brew started");
                 valveRelay.on();
                 pumpRelay.on();
                 currBrewState = kWaitBrew;
@@ -438,7 +438,7 @@ void brew() {
                 break;
 
             case 42:  // brew finished
-                debugPrintln("Brew stopped");
+                LOG(INFO, "Brew stopped");
                 valveRelay.off();
                 pumpRelay.off();
                 currBrewState = kWaitBrewOff;
