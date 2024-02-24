@@ -12,7 +12,6 @@
 class TempSensorDallas : public TempSensor {
     public:
         TempSensorDallas(int GPIOPin);
-        int getSamplingInterval() const override { return 400; }
         float getTempinCelsius() const override;
     private:
         OneWire* oneWire_;
