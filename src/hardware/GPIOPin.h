@@ -8,26 +8,27 @@
 
 #include <Arduino.h>
 
-enum PinType {
-    GPIO_OUTPUT,
-    GPIO_INPUT_STANDARD,
-    GPIO_INPUT_PULLUP,      // Internal pull-up resistor
-    GPIO_INPUT_PULLDOWN,    // Internal pull-down resistor
-    GPIO_INPUT_HARDWARE,    // External pull-up/pull-down resistor
-    GPIO_INPUT_ANALOG
-};
-
 class GPIOPin {
     public:
-        GPIOPin(int pinNumber, PinType pinType);
 
-        void write(bool value);
-        void setPinType(PinType pinType);
-        int read();
-        PinType getPinType();
+        enum Type {
+            OUT,
+            IN_STANDARD,
+            IN_PULLUP,      // Internal pull-up resistor
+            IN_PULLDOWN,    // Internal pull-down resistor
+            IN_HARDWARE,    // External pull-up/pull-down resistor
+            IN_ANALOG
+        };
+
+        GPIOPin(int pinNumber, Type pinType);
+
+        void write(bool value) const;
+        void setType(Type pinType);
+        int read() const;
+        Type getType() const;
 
     private:
         int pin;
-        PinType pinType;
+        Type pinType;
 };
 
