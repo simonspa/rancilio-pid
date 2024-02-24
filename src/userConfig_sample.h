@@ -101,3 +101,6 @@ enum MACHINE {
 
 #define TEMP_SENSOR 2               // Temp sensor type: 1 = DS18B20, 2 = TSIC306
 
+// Log level for serial console
+#define LOGLEVEL Logger::Level::INFO
+
