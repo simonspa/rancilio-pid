@@ -1440,7 +1440,7 @@ void debugVerboseOutput() {
     static PeriodicTrigger trigger(10000);
 
     if (trigger.check()) {
-        LOGF(DEBUG,
+        LOGF(TRACE,
             "Tsoll=%5.1f  Tist=%5.1f Machinestate=%2i KP=%4.2f "
             "KI=%4.2f KD=%4.2f",
             setpoint, temperature, machineState, bPID.GetKp(), bPID.GetKi(), bPID.GetKd());
@@ -2312,7 +2312,6 @@ void looppid() {
         sendTempEvent(temperature, brewSetpoint, pidOutput/10);       //pidOutput is promill, so /10 to get percent value
         lastTempEvent = millis();
 
-        #if VERBOSE
         if (pidON) {
             LOGF(TRACE, "Current PID mode: %s", bPID.GetPonE() ? "PonE" : "PonM");
 
@@ -2336,7 +2335,6 @@ void looppid() {
             LOGF(TRACE, "isBrewDetected %i", isBrewDetected);
             LOGF(TRACE, "brewDetectionMode %i", brewDetectionMode);
         }
-        #endif
     }
 
     #if (BREWMODE == 2 || ONLYPIDSCALE == 1)
