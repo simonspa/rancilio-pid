@@ -1436,18 +1436,6 @@ char const* machinestateEnumToString(MachineState machineState) {
 }
 
 
-void debugVerboseOutput() {
-    static PeriodicTrigger trigger(10000);
-
-    if (trigger.check()) {
-        LOGF(TRACE,
-            "Tsoll=%5.1f  Tist=%5.1f Machinestate=%2i KP=%4.2f "
-            "KI=%4.2f KD=%4.2f",
-            setpoint, temperature, machineState, bPID.GetKp(), bPID.GetKi(), bPID.GetKd());
-    }
-}
-
-
 /**
  * @brief Set up internal WiFi hardware
  */
