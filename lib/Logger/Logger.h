@@ -129,6 +129,12 @@ class Logger {
 #define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+/**
+ * @brief Execute a block only if the reporting level is high enough
+ * @param level The minimum log level
+ */
+#define IFLOG(level) if(Logger::Level::level >= Logger::getCurrentLevel())
+
 #define LOG(level, ...)                                                                                                     \
     if(Logger::Level::level >= Logger::getCurrentLevel())                                                             \
     Logger::getInstance().log(Logger::Level::level, __FILE_NAME__, FPSTR(__func__), __LINE__, __VA_ARGS__)
