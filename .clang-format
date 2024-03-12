@@ -6,14 +6,15 @@ AlignEscapedNewlines: Right
 AlignOperands:   Align
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: true
 BraceWrapping:
   BeforeElse:      true
 BreakBeforeBraces: Custom
 BreakConstructorInitializers: BeforeColon
 ColumnLimit:     125
 CommentPragmas:  '^ IWYU pragma:'
-QualifierAlignment: Leave
 CompactNamespaces: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
 Cpp11BracedListStyle: true
@@ -24,6 +25,7 @@ IndentPPDirectives: BeforeHash
 IndentWidth:     4
 PackConstructorInitializers: NextLineOnly
 PointerAlignment: Left
+QualifierAlignment: Leave
 SpaceBeforeParens: ControlStatements
 SpaceBeforeParensOptions:
   AfterControlStatements: true
