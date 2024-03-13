@@ -37,15 +37,17 @@ def formatting_callback(*arg, **kwargs):
         env.Exit(1)
 
 env.AddCustomTarget(
-    "format",
-    None,
-    apply_format_callback,
-    title="clang-format",
-    description="Run Source Code Formatting")
-
-env.AddCustomTarget(
     "check-format",
     None,
     check_format_callback,
-    title="clang-format",
+    title="Check clang-format",
     description="Check Source Code Formatting")
+
+env.AddCustomTarget(
+    "format",
+    None,
+    apply_format_callback,
+    title="Apply clang-format",
+    description="Run Source Code Formatting")
+
+
