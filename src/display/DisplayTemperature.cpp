@@ -1,25 +1,22 @@
 /**
- * @file displayTemplateTempOnly.h
+ * @file DisplayTemperature.cpp
  *
  * @brief Temp-only display template
  *
  */
 
-#pragma once
+#include "DisplayTemperature.h"
 
-// Define some Displayoptions
-int blinkingtemp = 1;           // 0: blinking near setpoint, 1: blinking far away from setpoint
-float blinkingtempoffset = 0.3; // offset for blinking
+void DisplayTemperature::printScreen(MachineState machineState, double temperature, double setpoint, unsigned int isrCounter, BrewSwitchState brewSwitchState) {
+    if (!display_enabled) {
+        return;
+    }
 
-/**
- * @brief Send data to display
- */
-void printScreen() {
     if (((machineState == kAtSetpoint || machineState == kPidNormal || machineState == kBrewDetectionTrailing) ||
          ((machineState == kBrew || machineState == kShotTimerAfterBrew) && FEATURE_SHOTTIMER == 0) || // shottimer == 0, auch Bezug anzeigen
          machineState == kCoolDown || ((machineState == kInit || machineState == kColdStart) && FEATURE_HEATINGLOGO == 0) || ((machineState == kPidOffline) && FEATURE_OFFLINELOGO == 0)) &&
         (brewSwitchState != kBrewSwitchFlushOff)) {
-        if (!sensorError) {
+        if (machineState != kSensorError) {
             u8g2.clearBuffer();
 
             // draw (blinking) temp

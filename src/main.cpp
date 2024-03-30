@@ -19,14 +19,12 @@
 #include "Logger.h"
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
-#include <PID_v1.h>  // for PID calculation
-#include <U8g2lib.h> // i2c display
+#include <PID_v1.h> // for PID calculation
 #include <WiFiManager.h>
 #include <os.h>
 
 // Includes
-#include "display/bitmaps.h" // user icons for display
-#include "languages.h"       // for language translation
+#include "languages.h" // for language translation
 #include "storage.h"
 
 // Hardware classes
@@ -42,17 +40,21 @@
 
 // User configuration & defaults
 #include "defaults.h"
+#include "machinestates.h"
 #include "userConfig.h" // needs to be configured by the user
+
+// Display templates:
+#include "display/DisplayMinimal.h"
+#include "display/DisplayScale.h"
+#include "display/DisplayStandard.h"
+#include "display/DisplayTemperature.h"
+#include "display/DisplayVertical.h"
 
 hw_timer_t* timer = NULL;
 
 #if (FEATURE_PRESSURESENSOR == 1)
 #include "hardware/pressureSensor.h"
 #include <Wire.h>
-#endif
-
-#if OLED_DISPLAY == 3
-#include <SPI.h>
 #endif
 
 #if FEATURE_SCALE == 1
@@ -77,25 +79,6 @@ MACHINE machine = (enum MACHINE)MACHINEID;
 #include "PeriodicTrigger.h"
 PeriodicTrigger logbrew(500);
 
-enum MachineState {
-    kInit = 0,
-    kColdStart = 10,
-    kAtSetpoint = 19,
-    kPidNormal = 20,
-    kBrew = 30,
-    kShotTimerAfterBrew = 31,
-    kBrewDetectionTrailing = 35,
-    kSteam = 40,
-    kCoolDown = 45,
-    kBackflush = 50,
-    kWaterEmpty = 70,
-    kEmergencyStop = 80,
-    kPidOffline = 90,
-    kStandby = 95,
-    kSensorError = 100,
-    kEepromError = 110,
-};
-
 MachineState machineState = kInit;
 int machinestatecold = 0;
 unsigned long machinestatecoldmillis = 0;
@@ -110,9 +93,6 @@ const int brewDetectionMode = BREWDETECTION_TYPE;
 const int optocouplerType = OPTOCOUPLER_TYPE;
 const boolean ota = OTA;
 int brewControlType = BREWCONTROL_TYPE;
-
-// Display
-uint8_t oled_i2c = OLED_I2C;
 
 // WiFi
 uint8_t wifiCredentialsSaved = 0;
@@ -152,6 +132,18 @@ float inputPressure = 0;
 float inputPressureFilter = 0;
 const unsigned long intervalPressure = 100;
 unsigned long previousMillisPressure; // initialisation at the end of init()
+#endif
+
+#if DISPLAYTEMPLATE == 2
+DisplayMinimal display(OLED_DISPLAY);
+#elif DISPLAYTEMPLATE == 3
+DisplayTemperature display(OLED_DISPLAY);
+#elif DISPLAYTEMPLATE == 4
+DisplayScale display(OLED_DISPLAY);
+#elif DISPLAYTEMPLATE == 20
+DisplayVertical display(OLED_DISPLAY);
+#else
+DisplayStandard display(OLED_DISPLAY);
 #endif
 
 GPIOPin* waterSensPin;
@@ -288,7 +280,6 @@ boolean coldstart = true;                     // true = Rancilio started for fir
 boolean emergencyStop = false;                // Emergency stop if temperature is too high
 double EmergencyStopTemp = 120;               // Temp EmergencyStopTemp
 float inX = 0, inY = 0, inOld = 0, inSum = 0; // used for filterPressureValue()
-int signalBars = 0;                           // used for getSignalStrength()
 boolean brewDetected = 0;
 boolean setupDone = false;
 int backflushOn = 0;                          // 1 = backflush mode active
@@ -381,77 +372,9 @@ const unsigned long HomeAssistantDiscoveryExecutionInterval = 300000; // 5 minut
 
 bool mqtt_was_connected = false;
 
-/**
- * @brief Get Wifi signal strength and set signalBars for display
- */
-void getSignalStrength() {
-    if (offlineMode == 1) return;
-
-    long rssi;
-
-    if (WiFi.status() == WL_CONNECTED) {
-        rssi = WiFi.RSSI();
-    }
-    else {
-        rssi = -100;
-    }
-
-    if (rssi >= -50) {
-        signalBars = 4;
-    }
-    else if (rssi < -50 && rssi >= -65) {
-        signalBars = 3;
-    }
-    else if (rssi < -65 && rssi >= -75) {
-        signalBars = 2;
-    }
-    else if (rssi < -75 && rssi >= -80) {
-        signalBars = 1;
-    }
-    else {
-        signalBars = 0;
-    }
-}
-
-// Display define & template
-#if OLED_DISPLAY == 1
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, PIN_I2CSCL, PIN_I2CSDA);  // e.g. 1.3"
-#endif
-#if OLED_DISPLAY == 2
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, PIN_I2CSCL, PIN_I2CSDA); // e.g. 0.96"
-#endif
-#if OLED_DISPLAY == 3
-#define OLED_CS 5
-#define OLED_DC 2
-U8G2_SH1106_128X64_NONAME_F_4W_HW_SPI u8g2(U8G2_R0, OLED_CS, OLED_DC, /* reset=*/U8X8_PIN_NONE); // e.g. 1.3"
-#endif
-
 // Update for Display
 unsigned long previousMillisDisplay; // initialisation at the end of init()
 const unsigned long intervalDisplay = 500;
-
-// Horizontal or vertical display
-#if (OLED_DISPLAY != 0)
-#if (DISPLAYTEMPLATE < 20) // horizontal templates
-#include "display/displayCommon.h"
-#endif
-
-#if (DISPLAYTEMPLATE >= 20) // vertical templates
-#include "display/displayRotateUpright.h"
-#endif
-
-#if (DISPLAYTEMPLATE == 1)
-#include "display/displayTemplateStandard.h"
-#elif (DISPLAYTEMPLATE == 2)
-#include "display/displayTemplateMinimal.h"
-#elif (DISPLAYTEMPLATE == 3)
-#include "display/displayTemplateTempOnly.h"
-#elif (DISPLAYTEMPLATE == 4)
-#include "display/displayTemplateScale.h"
-#elif (DISPLAYTEMPLATE == 20)
-#include "display/displayTemplateUpright.h"
-#endif
-#endif
 
 #include "powerHandler.h"
 #include "scaleHandler.h"
@@ -591,17 +514,14 @@ void refreshTemp() {
  * @brief Switch to offline mode if maxWifiReconnects were exceeded during boot
  */
 void initOfflineMode() {
-#if OLED_DISPLAY != 0
-    displayMessage("", "", "", "", "Begin Fallback,", "No Wifi");
-#endif
+    display.displayMessage("", "", "", "", "Begin Fallback,", "No Wifi");
 
     LOG(INFO, "Start offline mode with eeprom values, no wifi :(");
     offlineMode = 1;
+    display.enableOfflineMode();
 
     if (readSysParamsFromStorage() != 0) {
-#if OLED_DISPLAY != 0
-        displayMessage("", "", "", "", "No eeprom,", "Values");
-#endif
+        display.displayMessage("", "", "", "", "No eeprom,", "Values");
 
         LOG(INFO, "No working eeprom value, I am sorry, but use default offline value :)");
         delay(1000);
@@ -627,9 +547,7 @@ void checkWifi() {
                 LOGF(INFO, "Attempting WIFI (re-)connection: %i", wifiReconnects);
 
                 if (!setupDone) {
-#if OLED_DISPLAY != 0
-                    displayMessage("", "", "", "", langstring_wifirecon, String(wifiReconnects));
-#endif
+                    display.displayMessage("", "", "", "", langstring_wifirecon, String(wifiReconnects));
                 }
 
                 wm.disconnect();
@@ -1328,7 +1246,7 @@ void handleMachineState() {
 
         case kStandby:
             if (standbyModeRemainingTimeDisplayOffMillis == 0) {
-                u8g2.setPowerSave(1);
+                display.setPowerSave(true);
             }
 
             brewDetection();
@@ -1336,7 +1254,7 @@ void handleMachineState() {
             if (pidON || steamON || isBrewDetected) {
                 pidON = 1;
                 resetStandbyTimer();
-                u8g2.setPowerSave(0);
+                display.setPowerSave(false);
 
                 if (steamON) {
                     machineState = kSteam;
@@ -1429,9 +1347,7 @@ void wiFiSetup() {
         const char hostname[] = (STR(HOSTNAME));
         LOGF(INFO, "Connecting to WiFi: %s", String(hostname));
 
-#if OLED_DISPLAY != 0
-        displayLogo("Connecting to: ", HOSTNAME);
-#endif
+        display.displayLogo("Connecting to: ", HOSTNAME);
     }
 
     wm.setHostname(hostname);
@@ -1455,19 +1371,16 @@ void wiFiSetup() {
     else {
         LOG(INFO, "WiFi connection timed out...");
 
-#if OLED_DISPLAY != 0
-        displayLogo(langstring_nowifi[0], langstring_nowifi[1]);
-#endif
+        display.displayLogo(langstring_nowifi[0], langstring_nowifi[1]);
 
         wm.disconnect();
         delay(1000);
 
         offlineMode = 1;
+        display.enableOfflineMode();
     }
 
-#if OLED_DISPLAY != 0
-    displayLogo(langstring_connectwifi1, wm.getWiFiSSID(true));
-#endif
+    display.displayLogo(langstring_connectwifi1, wm.getWiFiSSID(true));
 }
 
 /**
@@ -1999,13 +1912,10 @@ void setup() {
         }
     }
 
-#if OLED_DISPLAY != 0
-    u8g2.setI2CAddress(oled_i2c * 2);
-    u8g2.begin();
-    u8g2_prepare();
-    displayLogo(String("Version "), String(sysVersion));
+    // Display the logo
+    display.displayLogo(String("Version "), String(sysVersion));
+
     delay(2000); // caused crash with wifi manager on esp8266, should be ok on esp32
-#endif
 
     // Fallback offline
     if (connectmode == 1) { // WiFi Mode
@@ -2034,6 +1944,7 @@ void setup() {
         wm.disconnect();            // no wm
         readSysParamsFromStorage(); // get all parameters from storage
         offlineMode = 1;            // offline mode
+        display.enableOfflineMode();
         pidON = 1;                  // pid on
     }
 
@@ -2218,21 +2129,19 @@ void looppid() {
 #endif
 
     // Check if PID should run or not. If not, set to manual and force output to zero
-#if OLED_DISPLAY != 0
     unsigned long currentMillisDisplay = millis();
 
     if (currentMillisDisplay - previousMillisDisplay >= 100) {
-        displayShottimer();
+        display.displayShottimer(machineState, (BrewSwitchState)brewSwitchState);
     }
 
     if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
         previousMillisDisplay = currentMillisDisplay;
-#if DISPLAYTEMPLATE < 20 // not using vertical template
-        displayMachineState();
-#endif
-        printScreen();   // refresh display
+
+        display.displayMachineState(machineState, temperature, setpoint, isrCounter, (BrewSwitchState)brewSwitchState);
+
+        display.printScreen(machineState, temperature, setpoint, isrCounter, (BrewSwitchState)brewSwitchState);
     }
-#endif
 
     if (machineState == kPidOffline || machineState == kWaterEmpty || machineState == kSensorError || machineState == kEmergencyStop || machineState == kEepromError || machineState == kStandby || brewPIDDisabled) {
         if (pidMode == 1) {

@@ -1,21 +1,79 @@
 /**
- * @file displayTemplateUpright.h
+ * @file DisplayVertical.cpp
  *
- * @brief Vertical display template
- *
+ * @brief Vertical display class implementation
  */
 
-#pragma once
+#include "DisplayVertical.h"
 
-/**
- * @brief Send data to display
- */
-void printScreen() {
+void DisplayVertical::prepare() {
+    if (!display_enabled) {
+        return;
+    }
+
+    u8g2.setFont(u8g2_font_profont11_tf);
+    u8g2.setFontRefHeightExtendedText();
+    u8g2.setDrawColor(1);
+    u8g2.setFontPosTop();
+    u8g2.setFontDirection(0);
+    u8g2.setDisplayRotation(U8G2_R1); // fix setting for vertical
+}
+
+void DisplayVertical::displayLogo(String text1, String text2) {
+    if (!display_enabled) {
+        return;
+    }
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 47, text1.c_str());
+    u8g2.drawStr(0, 55, text2.c_str());
+
+    u8g2.drawXBMP(11, 4, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
+
+    u8g2.sendBuffer();
+}
+
+void DisplayVertical::displayShottimer(MachineState, BrewSwitchState) {
+    if (!display_enabled || FEATURE_SHOTTIMER == 0) {
+        return;
+    }
+
+    if (((timeBrewed > 0 && BREWCONTROL_TYPE == 0) || (BREWCONTROL_TYPE > 0 && currBrewState > kBrewIdle && currBrewState <= kBrewFinished)) && FEATURE_SHOTTIMER == 1 && SHOTTIMER_TYPE == 1) {
+        u8g2.clearBuffer();
+
+        // draw temp icon
+        u8g2.drawXBMP(0, 0, Brew_Cup_Logo_width, Brew_Cup_Logo_height, Brew_Cup_Logo);
+        u8g2.setFont(u8g2_font_profont22_tf);
+        u8g2.setCursor(5, 70);
+        u8g2.print(timeBrewed / 1000, 1);
+        u8g2.setFont(u8g2_font_profont11_tf);
+        u8g2.sendBuffer();
+    }
+
+    if (FEATURE_SHOTTIMER == 1 && SHOTTIMER_TYPE == 1 && millis() >= lastBrewTimeMillis && // directly after creating lastbrewTimeMillis (happens when turning off the brew switch, case 43 in the code) should be started
+        lastBrewTimeMillis + SHOTTIMERDISPLAYDELAY >= millis() &&                          // should run until millis() has caught up with SHOTTIMERDISPLAYDELAY, this can be used to control the display duration
+        lastBrewTimeMillis < totalBrewTime) // if the totalBrewTime is reached automatically, nothing should be done, otherwise wrong time will be displayed because switch is pressed later than totalBrewTime
+    {
+        u8g2.clearBuffer();
+        u8g2.drawXBMP(0, 0, Brew_Cup_Logo_width, Brew_Cup_Logo_height, Brew_Cup_Logo);
+        u8g2.setFont(u8g2_font_profont22_tf);
+        u8g2.setCursor(5, 70);
+        u8g2.print((lastBrewTimeMillis - startingTime) / 1000, 1);
+        u8g2.setFont(u8g2_font_profont11_tf);
+        u8g2.sendBuffer();
+    }
+}
+
+void DisplayVertical::printScreen(MachineState machineState, double temperature, double setpoint, unsigned int isrCounter, BrewSwitchState brewSwitchState) {
+    if (!display_enabled) {
+        return;
+    }
+
     if (((machineState == kAtSetpoint || machineState == kPidNormal || machineState == kBrewDetectionTrailing) ||
          ((machineState == kBrew || machineState == kShotTimerAfterBrew) && FEATURE_SHOTTIMER == 0) || // shottimer == 0, auch Bezug anzeigen
          machineState == kCoolDown || ((machineState == kInit || machineState == kColdStart) && FEATURE_HEATINGLOGO == 0) || ((machineState == kPidOffline) && FEATURE_OFFLINELOGO == 0)) &&
         (brewSwitchState != kBrewSwitchFlushOff)) {
-        if (!sensorError) {
+        if (machineState != kSensorError) {
             u8g2.clearBuffer();
             u8g2.setCursor(1, 14);
             u8g2.print(langstring_current_temp_rot_ur);
@@ -110,12 +168,11 @@ void printScreen() {
             u8g2.drawFrame(0, 0, 64, 12);
 
             if (offlineMode == 0) {
-                getSignalStrength();
 
                 if (WiFi.status() == WL_CONNECTED) {
                     u8g2.drawXBMP(4, 2, 8, 8, Antenna_OK_Icon);
 
-                    for (int b = 0; b <= signalBars; b++) {
+                    for (int b = 0; b <= getSignalStrength(); b++) {
                         u8g2.drawVLine(13 + (b * 2), 10 - (b * 2), b * 2);
                     }
                 }

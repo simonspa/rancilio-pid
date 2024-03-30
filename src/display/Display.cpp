@@ -1,17 +1,54 @@
 /**
- * @file displayCommon.h
+ * @file Display.cpp
  *
- * @brief Common functions for all display templates
+ * @brief Display base class implementation
  */
 
-#pragma once
+#include "Display.h"
+#include "hardware/pinmapping.h"
 
-#if (OLED_DISPLAY != 0)
+Display::Display(Type displaytype) {
 
-/**
- * @brief initialize display
- */
-void u8g2_prepare(void) {
+    // Display define & template
+    switch (displaytype) {
+        case Type::SH1106:
+            u8g2 = U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, PIN_I2CSCL, PIN_I2CSDA); // e.g. 1.3"
+            display_enabled = true;
+            break;
+        case Type::SSD1306:
+            u8g2 = U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, PIN_I2CSCL, PIN_I2CSDA); // e.g. 0.96"
+            display_enabled = true;
+        case Type::SH1106_126x64_SPI:
+            u8g2 = U8G2_SH1106_128X64_NONAME_F_4W_HW_SPI(U8G2_R0, 5, 2, /* reset=*/U8X8_PIN_NONE);      // e.g. 1.3"
+            display_enabled = true;
+        default:
+            // No display
+            display_enabled = false;
+    }
+
+    if (display_enabled) {
+        u8g2.setI2CAddress(oled_i2c * 2);
+        u8g2.begin();
+    }
+
+    prepare();
+}
+
+void Display::setPowerSave(bool enable) {
+    if (!display_enabled) {
+        return;
+    }
+    u8g2.setPowerSave(enable);
+}
+
+void Display::prepare() {
+    if (!display_enabled) {
+        return;
+    }
+
+    u8g2.setI2CAddress(oled_i2c * 2);
+    u8g2.begin();
+
     u8g2.setFont(u8g2_font_profont11_tf);
     u8g2.setFontRefHeightExtendedText();
     u8g2.setDrawColor(1);
@@ -20,190 +57,23 @@ void u8g2_prepare(void) {
     u8g2.setDisplayRotation(DISPLAYROTATE);
 }
 
-/**
- * @brief Draw a water empty icon at the given coordinates if water supply is low
- */
-void displayWaterIcon(int x, int y) {
-    if (!waterFull) {
-        u8g2.drawXBMP(x, y, 8, 8, Water_Empty_Icon);
+void Display::displayLogo(String text1, String text2) {
+    if (!display_enabled) {
+        return;
     }
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(0, 45, text1.c_str());
+    u8g2.drawStr(0, 55, text2.c_str());
+    u8g2.drawXBMP(38, 0, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
+    u8g2.sendBuffer();
 }
 
-/**
- * @brief Draw the system uptime at the given coordinates
- */
-void displayUptime(int x, int y, const char* format) {
-    // Show uptime of machine
-    unsigned long seconds = millis() / 1000;
-    unsigned long hours = seconds / 3600;
-    unsigned long minutes = (seconds % 3600) / 60;
-    seconds = seconds % 60;
-
-    char uptimeString[9];
-    snprintf(uptimeString, sizeof(uptimeString), format, hours, minutes, seconds);
-
-    u8g2.setFont(u8g2_font_profont11_tf);
-    u8g2.drawStr(x, y, uptimeString);
-}
-
-/**
- * @brief Draw a WiFi signal strength indicator at the given coordinates
- */
-void displayWiFiStatus(int x, int y) {
-    getSignalStrength();
-
-    if (WiFi.status() == WL_CONNECTED) {
-        u8g2.drawXBMP(x, y, 8, 8, Antenna_OK_Icon);
-
-        for (int b = 0; b <= signalBars; b++) {
-            u8g2.drawVLine(x + 5 + (b * 2), y + 8 - (b * 2), b * 2);
-        }
-    }
-    else {
-        u8g2.drawXBMP(x, y, 8, 8, Antenna_NOK_Icon);
-        u8g2.setCursor(x + 5, y + 10);
-        u8g2.setFont(u8g2_font_profont11_tf);
-        u8g2.print("RC: ");
-        u8g2.print(wifiReconnects);
-    }
-}
-
-/**
- * @brief Draw an MQTT status indicator at the given coordinates if MQTT is enabled
- */
-void displayMQTTStatus(int x, int y) {
-    if (FEATURE_MQTT == 1) {
-        if (mqtt.connected() == 1) {
-            u8g2.setCursor(x, y);
-            u8g2.setFont(u8g2_font_profont11_tf);
-            u8g2.print("MQTT");
-        }
-        else {
-            u8g2.setCursor(x, y);
-            u8g2.print("");
-        }
-    }
-}
-
-/**
- * @brief Draw the outline of a thermometer for use in conjunction with the drawTemperaturebar method
- */
-void displayThermometerOutline(int x, int y) {
-    u8g2.drawLine(x + 3, y - 9, x + 3, y - 42);
-    u8g2.drawLine(x + 9, y - 9, x + 9, y - 42);
-    u8g2.drawPixel(x + 4, y - 43);
-    u8g2.drawPixel(x + 8, y - 43);
-    u8g2.drawLine(x + 5, y - 44, x + 7, y - 44);
-    u8g2.drawDisc(x + 6, y - 5, 6);
-
-    // draw setpoint line
-    int height = map(setpoint, 0, 100, y - 9, y - 39);
-    u8g2.drawLine(x + 11, height, x + 16, height);
-}
-
-/**
- * @brief Draw temperature bar, e.g. inside the thermometer outline.
- *        Add 4 pixels to the x-coordinate and subtract 12 pixels from the y-coordinate of the thermometer.
- */
-void drawTemperaturebar(int x, int y, int heightRange) {
-    int width = x + 5;
-
-    for (int i = x; i < width; i++) {
-        int height = map(temperature, 0, 100, 0, heightRange);
-        u8g2.drawVLine(i, 52 - height, height);
+void Display::displayMessage(String text1, String text2, String text3, String text4, String text5, String text6) {
+    if (!display_enabled) {
+        return;
     }
 
-    if (temperature > 100) {
-        u8g2.drawLine(x, heightRange - 11, x + 3, heightRange - 11);
-        u8g2.drawLine(x, heightRange - 10, x + 4, heightRange - 10);
-        u8g2.drawLine(x, heightRange - 9, x + 4, heightRange - 9);
-    }
-}
-
-/**
- * @brief Draw the temperature in big font at given position
- */
-void displayTemperature(int x, int y) {
-    u8g2.setFont(u8g2_font_fub30_tf);
-
-    if (temperature < 99.999) {
-        u8g2.setCursor(x + 20, y);
-        u8g2.print(temperature, 0);
-    }
-    else {
-        u8g2.setCursor(x, y);
-        u8g2.print(temperature, 0);
-    }
-
-    u8g2.drawCircle(x + 72, y + 4, 3);
-}
-
-/**
- * @brief Draw the brew time at given position
- */
-void displayBrewtime(int x, int y, double brewtime) {
-    u8g2.setFont(u8g2_font_fub25_tf);
-
-    if (brewtime < 10000.000) {
-        u8g2.setCursor(x + 16, y);
-    }
-    else {
-        u8g2.setCursor(x, y);
-    }
-
-    u8g2.print(brewtime / 1000, 1);
-    u8g2.setFont(u8g2_font_profont15_tf);
-
-    if (brewtime < 10000.000) {
-        u8g2.setCursor(x + 67, y + 14);
-    }
-    else {
-        u8g2.setCursor(x + 69, y + 14);
-    }
-
-    u8g2.print("s");
-    u8g2.setFont(u8g2_font_profont11_tf);
-}
-
-/**
- * @brief Draw a bar visualizing the output in % at the given coordinates and with the given width
- */
-void displayProgressbar(int value, int x, int y, int width) {
-    u8g2.drawFrame(x, y, width, 4);
-    int output = map(value, 0, 100, 0, width);
-
-    if (output - 2 > 0) {
-        u8g2.drawLine(x + 1, y + 1, x + output - 1, y + 1);
-        u8g2.drawLine(x + 1, y + 2, x + output - 1, y + 2);
-    }
-}
-
-/**
- * @brief Draw a status bar at the top of the screen with icons for WiFi, MQTT,
- *        the system uptime and a separator line underneath
- */
-void displayStatusbar() {
-    // For status info
-    u8g2.drawLine(0, 12, 128, 12);
-
-    if (offlineMode == 0) {
-        displayWiFiStatus(4, 1);
-        displayMQTTStatus(38, 0);
-    }
-    else {
-        u8g2.setCursor(4, 0);
-        u8g2.setFont(u8g2_font_profont11_tf);
-        u8g2.print(langstring_offlinemode);
-    }
-
-    const char* format = "%02luh %02lum";
-    displayUptime(84, 0, format);
-}
-
-/**
- * @brief print message
- */
-void displayMessage(String text1, String text2, String text3, String text4, String text5, String text6) {
     u8g2.clearBuffer();
     u8g2.setCursor(0, 0);
     u8g2.print(text1);
@@ -220,24 +90,8 @@ void displayMessage(String text1, String text2, String text3, String text4, Stri
     u8g2.sendBuffer();
 }
 
-/**
- * @brief print logo and message at boot
- */
-void displayLogo(String displaymessagetext, String displaymessagetext2) {
-    u8g2.clearBuffer();
-    u8g2.drawStr(0, 45, displaymessagetext.c_str());
-    u8g2.drawStr(0, 55, displaymessagetext2.c_str());
-
-    u8g2.drawXBMP(38, 0, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
-
-    u8g2.sendBuffer();
-}
-
-/**
- * @brief display shot timer
- */
-void displayShottimer(void) {
-    if (FEATURE_SHOTTIMER == 0) {
+void Display::displayShottimer(MachineState machineState, BrewSwitchState brewSwitchState) {
+    if (!display_enabled || FEATURE_SHOTTIMER == 0) {
         return;
     }
 
@@ -307,9 +161,218 @@ void displayShottimer(void) {
 }
 
 /**
- * @brief display heating logo
+ * @brief Draw a water empty icon at the given coordinates if water supply is low
  */
-void displayMachineState() {
+void Display::displayWaterIcon(int x, int y) {
+    if (!waterFull) {
+        u8g2.drawXBMP(x, y, 8, 8, Water_Empty_Icon);
+    }
+}
+
+/**
+ * @brief Draw the system uptime at the given coordinates
+ */
+void Display::displayUptime(int x, int y, const char* format) {
+    // Show uptime of machine
+    unsigned long seconds = millis() / 1000;
+    unsigned long hours = seconds / 3600;
+    unsigned long minutes = (seconds % 3600) / 60;
+    seconds = seconds % 60;
+
+    char uptimeString[9];
+    snprintf(uptimeString, sizeof(uptimeString), format, hours, minutes, seconds);
+
+    u8g2.setFont(u8g2_font_profont11_tf);
+    u8g2.drawStr(x, y, uptimeString);
+}
+
+/**
+ * @brief Draw a WiFi signal strength indicator at the given coordinates
+ */
+void Display::displayWiFiStatus(int x, int y) {
+
+    if (WiFi.status() == WL_CONNECTED) {
+        u8g2.drawXBMP(x, y, 8, 8, Antenna_OK_Icon);
+
+        for (int b = 0; b <= getSignalStrength(); b++) {
+            u8g2.drawVLine(x + 5 + (b * 2), y + 8 - (b * 2), b * 2);
+        }
+    }
+    else {
+        u8g2.drawXBMP(x, y, 8, 8, Antenna_NOK_Icon);
+        u8g2.setCursor(x + 5, y + 10);
+        u8g2.setFont(u8g2_font_profont11_tf);
+        u8g2.print("RC: ");
+        u8g2.print(wifiReconnects);
+    }
+}
+
+/**
+ * @brief Draw an MQTT status indicator at the given coordinates if MQTT is enabled
+ */
+void Display::displayMQTTStatus(int x, int y) {
+    if (FEATURE_MQTT == 1) {
+        if (mqtt.connected() == 1) {
+            u8g2.setCursor(x, y);
+            u8g2.setFont(u8g2_font_profont11_tf);
+            u8g2.print("MQTT");
+        }
+        else {
+            u8g2.setCursor(x, y);
+            u8g2.print("");
+        }
+    }
+}
+
+/**
+ * @brief Draw the outline of a thermometer for use in conjunction with the drawTemperaturebar method
+ */
+void Display::displayThermometerOutline(int x, int y) {
+    u8g2.drawLine(x + 3, y - 9, x + 3, y - 42);
+    u8g2.drawLine(x + 9, y - 9, x + 9, y - 42);
+    u8g2.drawPixel(x + 4, y - 43);
+    u8g2.drawPixel(x + 8, y - 43);
+    u8g2.drawLine(x + 5, y - 44, x + 7, y - 44);
+    u8g2.drawDisc(x + 6, y - 5, 6);
+
+    // draw setpoint line
+    int height = map(setpoint, 0, 100, y - 9, y - 39);
+    u8g2.drawLine(x + 11, height, x + 16, height);
+}
+
+/**
+ * @brief Draw temperature bar, e.g. inside the thermometer outline.
+ *        Add 4 pixels to the x-coordinate and subtract 12 pixels from the y-coordinate of the thermometer.
+ */
+void Display::drawTemperaturebar(int x, int y, int heightRange, double temperature) {
+    int width = x + 5;
+
+    for (int i = x; i < width; i++) {
+        int height = map(temperature, 0, 100, 0, heightRange);
+        u8g2.drawVLine(i, 52 - height, height);
+    }
+
+    if (temperature > 100) {
+        u8g2.drawLine(x, heightRange - 11, x + 3, heightRange - 11);
+        u8g2.drawLine(x, heightRange - 10, x + 4, heightRange - 10);
+        u8g2.drawLine(x, heightRange - 9, x + 4, heightRange - 9);
+    }
+}
+
+/**
+ * @brief Draw the temperature in big font at given position
+ */
+void Display::displayTemperature(int x, int y) {
+    u8g2.setFont(u8g2_font_fub30_tf);
+
+    if (temperature < 99.999) {
+        u8g2.setCursor(x + 20, y);
+        u8g2.print(temperature, 0);
+    }
+    else {
+        u8g2.setCursor(x, y);
+        u8g2.print(temperature, 0);
+    }
+
+    u8g2.drawCircle(x + 72, y + 4, 3);
+}
+
+/**
+ * @brief Draw the brew time at given position
+ */
+void Display::displayBrewtime(int x, int y, double brewtime) {
+    u8g2.setFont(u8g2_font_fub25_tf);
+
+    if (brewtime < 10000.000) {
+        u8g2.setCursor(x + 16, y);
+    }
+    else {
+        u8g2.setCursor(x, y);
+    }
+
+    u8g2.print(brewtime / 1000, 1);
+    u8g2.setFont(u8g2_font_profont15_tf);
+
+    if (brewtime < 10000.000) {
+        u8g2.setCursor(x + 67, y + 14);
+    }
+    else {
+        u8g2.setCursor(x + 69, y + 14);
+    }
+
+    u8g2.print("s");
+    u8g2.setFont(u8g2_font_profont11_tf);
+}
+
+/**
+ * @brief Draw a bar visualizing the output in % at the given coordinates and with the given width
+ */
+void Display::displayProgressbar(int value, int x, int y, int width) {
+    u8g2.drawFrame(x, y, width, 4);
+    int output = map(value, 0, 100, 0, width);
+
+    if (output - 2 > 0) {
+        u8g2.drawLine(x + 1, y + 1, x + output - 1, y + 1);
+        u8g2.drawLine(x + 1, y + 2, x + output - 1, y + 2);
+    }
+}
+
+/**
+ * @brief Draw a status bar at the top of the screen with icons for WiFi, MQTT,
+ *        the system uptime and a separator line underneath
+ */
+void Display::displayStatusbar() {
+    // For status info
+    u8g2.drawLine(0, 12, 128, 12);
+
+    if (offlineMode == 0) {
+        displayWiFiStatus(4, 1);
+        displayMQTTStatus(38, 0);
+    }
+    else {
+        u8g2.setCursor(4, 0);
+        u8g2.setFont(u8g2_font_profont11_tf);
+        u8g2.print(langstring_offlinemode);
+    }
+
+    const char* format = "%02luh %02lum";
+    displayUptime(84, 0, format);
+}
+
+int Display::getSignalStrength() {
+    if (offlineMode == 1) return 0;
+
+    long rssi;
+
+    if (WiFi.status() == WL_CONNECTED) {
+        rssi = WiFi.RSSI();
+    }
+    else {
+        rssi = -100;
+    }
+
+    if (rssi >= -50) {
+        return 4;
+    }
+    else if (rssi < -50 && rssi >= -65) {
+        return 3;
+    }
+    else if (rssi < -65 && rssi >= -75) {
+        return 2;
+    }
+    else if (rssi < -75 && rssi >= -80) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+void Display::displayMachineState(MachineState machineState, double temperature, double setpoint, unsigned int isrCounter, BrewSwitchState brewSwitchState) {
+    if (!display_enabled) {
+        return;
+    }
+
     if (FEATURE_HEATINGLOGO > 0 && (machineState == kInit || machineState == kColdStart) && brewSwitchState != kBrewSwitchFlushOff) {
         // For status info
         u8g2.clearBuffer();
@@ -423,7 +486,7 @@ void displayMachineState() {
 
         // draw current temp in thermometer
         if (isrCounter < 500) {
-            drawTemperaturebar(8, 46, 30);
+            drawTemperaturebar(8, 46, 30, temperature);
             u8g2.setCursor(32, 4);
             u8g2.print("PID STOPPED");
         }
@@ -445,4 +508,3 @@ void displayMachineState() {
         displayMessage("EEPROM Error, please set Values", "", "", "", "", "");
     }
 }
-#endif

@@ -1,20 +1,21 @@
 /**
- * @file displayTemplateMinimal.h
+ * @file DisplayMinimal.cpp
  *
  * @brief Minimal display template
  *
  */
 
-#pragma once
+#include "DisplayMinimal.h"
 
-/**
- * @brief Send data to display
- */
-void printScreen() {
+void DisplayMinimal::printScreen(MachineState machineState, double temperature, double setpoint, unsigned int isrCounter, BrewSwitchState brewSwitchState) {
+    if (!display_enabled) {
+        return;
+    }
+
     if (((machineState == kAtSetpoint || machineState == kPidNormal || machineState == kBrewDetectionTrailing) || ((machineState == kBrew || machineState == kShotTimerAfterBrew) && FEATURE_SHOTTIMER == 0) ||
          machineState == kCoolDown || ((machineState == kColdStart) && FEATURE_HEATINGLOGO == 0) || ((machineState == kPidOffline) && FEATURE_OFFLINELOGO == 0)) &&
         (brewSwitchState != kBrewSwitchFlushOff)) {
-        if (!sensorError) {
+        if (machineState != kSensorError) {
             u8g2.clearBuffer();
 
             displayStatusbar();

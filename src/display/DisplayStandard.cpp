@@ -1,16 +1,17 @@
 /**
- * @file displayTemplateStandard.h
+ * @file DisplayStandard.cpp
  *
  * @brief Standard display template
  *
  */
 
-#pragma once
+#include "DisplayStandard.h"
 
-/**
- * @brief Send data to display
- */
-void printScreen() {
+void DisplayStandard::printScreen(MachineState machineState, double temperature, double setpoint, unsigned int isrCounter, BrewSwitchState brewSwitchState) {
+    if (!display_enabled) {
+        return;
+    }
+
     if (((machineState == kAtSetpoint || machineState == kPidNormal || machineState == kBrewDetectionTrailing) ||
          ((machineState == kBrew || machineState == kShotTimerAfterBrew) && FEATURE_SHOTTIMER == 0) || // shottimer == 0, auch Bezug anzeigen
          machineState == kCoolDown || ((machineState == kInit || machineState == kColdStart) && FEATURE_HEATINGLOGO == 0) || ((machineState == kPidOffline) && FEATURE_OFFLINELOGO == 0)) &&
@@ -40,11 +41,11 @@ void printScreen() {
         // Draw current temp in thermometer
         if (fabs(temperature - setpoint) < 0.3) {
             if (isrCounter < 500) {
-                drawTemperaturebar(8, 50, 30);
+                drawTemperaturebar(8, 50, 30, temperature);
             }
         }
         else {
-            drawTemperaturebar(8, 50, 30);
+            drawTemperaturebar(8, 50, 30, temperature);
         }
 
         // Brew time
